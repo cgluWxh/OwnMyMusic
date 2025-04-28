@@ -34,7 +34,7 @@ module.exports = {
     return metadata
   },
 
-  writeMetadata (trackInfo, trackPath = '', coverPath = '') {
+  writeMetadata (trackInfo, trackPath = '', coverPath = '', lyricStr = '') {
     if (trackPath.endsWith('mp3')) {
       const tags = {
         title: trackInfo.title,
@@ -46,6 +46,7 @@ module.exports = {
         MCDI: trackInfo.discNo
       }
       if (trackInfo.albumImg) tags.APIC = path.resolve(coverPath)
+      if (lyricStr) tags.USLT = lyricStr
 
       logger.debug('MP3 meatadata', tags)
       const result = nodeID3.write(tags, trackPath)
@@ -55,19 +56,24 @@ module.exports = {
         logger.warn('Write metadata failed.')
       }
     } else {
-      const flac = new Metaflac(trackPath)
+      try {
+        const flac = new Metaflac(trackPath)
 
-      flac.setTag('TITLE=' + trackInfo.title)
-      flac.setTag('ALBUM=' + trackInfo.album)
-      flac.setTag('ARTIST=' + trackInfo.artist)
-      flac.setTag('DATE=' + trackInfo.year)
-      flac.setTag('YEAR=' + trackInfo.year)
-      flac.setTag('TRACKNUMBER=' + trackInfo.albumNo)
-      flac.setTag('DISCNUMBER=' + trackInfo.discNo)
+        flac.setTag('TITLE=' + trackInfo.title)
+        flac.setTag('ALBUM=' + trackInfo.album)
+        flac.setTag('ARTIST=' + trackInfo.artist)
+        flac.setTag('DATE=' + trackInfo.year)
+        flac.setTag('YEAR=' + trackInfo.year)
+        flac.setTag('TRACKNUMBER=' + trackInfo.albumNo)
+        flac.setTag('DISCNUMBER=' + trackInfo.discNo)
 
-      if (trackInfo.albumImg) flac.importPicture(coverPath)
+        if (trackInfo.albumImg) flac.importPicture(coverPath)
+        if (lyricStr) flac.setTag('LYRICS=' + lyricStr)
 
-      flac.save()
+        flac.save()
+      } catch(e) {
+        logger.warn(`Failed to write metadata for ${trackInfo.title}`)
+      }
     }
 
     if (trackInfo.albumImg) {

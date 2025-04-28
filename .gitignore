@@ -3,3 +3,4 @@ MUSIC/
 dist/
 /config.js
 /account.json
+.DS_Store

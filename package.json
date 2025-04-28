@@ -1,35 +1,28 @@
 {
-  "name": "@kawaiilab/azusa",
-  "version": "1.1.3",
+  "name": "own-my-music",
+  "version": "1.1.4",
   "description": "For and by music lover",
   "main": "app.js",
+  "pkg": {
+    "targets": ["node14-win-x64"],
+    "assets": ["node_modules"] 
+  },
   "bin": {
-    "azusa": "./app.js"
+    "own-my-music": "./app.js"
   },
   "scripts": {
     "start": "node app.js",
     "build": "rm -fr ./dist && ./node_modules/.bin/pkg -t node14-macos-x64 app.js -o ./dist/azusa-macos-x64 --no-bytecode --public --public-packages '*' && ./node_modules/.bin/pkg -t node14-win-x64 app.js -o ./dist/azusa-win-x64 --no-bytecode --public --public-packages '*' && ./node_modules/.bin/pkg -t node14-win-x86 app.js -o ./dist/azusa-win-x86 --no-bytecode --public --public-packages '*' && ./node_modules/.bin/pkg -t node14-linux-x64 app.js -o ./dist/azusa-linux-x64 --no-bytecode --public --public-packages '*'"
   },
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/kawaiilab/azusa.git"
-  },
-  "keywords": [
-    "WALKMAN"
-  ],
-  "author": "Lyn",
+  "author": "Lyn & cgluWxh",
   "license": "MIT",
-  "bugs": {
-    "url": "https://github.com/kawaiilab/azusa/issues"
-  },
-  "homepage": "https://github.com/kawaiilab/azusa#readme",
   "dependencies": {
-    "NeteaseCloudMusicApi": "^4.0.9",
     "colors": "^1.4.0",
     "dotenv": "^8.2.0",
     "fast-array-diff": "^1.0.0",
     "fs": "0.0.1-security",
     "metaflac-js2": "^1.0.7",
+    "NeteaseCloudMusicApi": "^4.8.2",
     "node-id3": "^0.2.2",
     "node-object-hash": "^2.0.0",
     "nodejs-file-downloader": "^4.4.0",
@@ -45,9 +38,7 @@
     "uuid": "^8.3.0"
   },
   "devDependencies": {
-    "eslint": "^7.3.1",
-    "eslint-plugin-markdown": "^1.0.2",
-    "pkg": "^4.4.9",
+    "pkg": "^4.3.1",
     "standard": "^14.3.4"
   }
 }

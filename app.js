@@ -24,10 +24,12 @@ const that = {
 const uuid = require('uuid').v4
 const tmpBasePath = path.resolve(os.tmpdir(), 'Azusa/')
 
-let __root = ''
+let __root = config('dest', '');
 
-if (fs.existsSync(path.resolve('MUSIC'))) __root = path.resolve('MUSIC')
-else __root = path.resolve('../MUSIC')
+if (!__root) {
+  if (fs.existsSync(path.resolve('MUSIC'))) __root = path.resolve('MUSIC')
+  else __root = path.resolve('../MUSIC')
+}
 
 if (!fs.existsSync(__root = path.resolve(__root, 'Azusa/MUSIC'))) {
   fs.mkdirSync(__root, {
@@ -35,8 +37,8 @@ if (!fs.existsSync(__root = path.resolve(__root, 'Azusa/MUSIC'))) {
   })
 }
 
-if (!fs.existsSync(path.resolve(__root, '.azusa/'))) {
-  fs.mkdirSync(path.resolve(__root, '.azusa/'))
+if (!fs.existsSync(path.resolve(__root, 'azusa/'))) {
+  fs.mkdirSync(path.resolve(__root, 'azusa/'))
 }
 
 // Get downloaded list
@@ -68,7 +70,7 @@ if (!fs.existsSync(path.resolve(__root, '.azusa/'))) {
 
   // Login to Cloudmusic
   logger.info('Logging in to Cloudmusic')
-  await api.login(config('phone'), config('password'), config('saveCookie', true) ? path.resolve('account.json') : '')
+  await api.login(config('saveCookie', true) ? path.resolve('account.json') : '')
 
   // Generate infomation for downloading
   const playlistList = []
@@ -83,10 +85,10 @@ if (!fs.existsSync(path.resolve(__root, '.azusa/'))) {
       for (const plist of playlist) list.add(plist.id)
 
       const extraPlaylist = config('extraPlaylist', [])
-      extraPlaylist.forEach((item) => list.add(parseInt(item.trim(), 10)))
+      extraPlaylist.forEach((item) => list.add(item))
 
       const excludePlaylist = config('excludePlaylist', [])
-      excludePlaylist.forEach((item) => list.delete(parseInt(item.trim(), 10)))
+      excludePlaylist.forEach((item) => list.delete(item))
 
       for (const playlistId of list) {
         const playlistInfo = await api.getPlaylistInfo(playlistId)
@@ -141,10 +143,10 @@ if (!fs.existsSync(path.resolve(__root, '.azusa/'))) {
       for (const alist of albumList) list.add(alist.id)
 
       const extraAlbum = config('extraAlbum', [])
-      extraAlbum.forEach((item) => list.add(parseInt(item.trim(), 10)))
+      extraAlbum.forEach((item) => list.add(item))
 
       const excludeAlbum = config('excludeAlbum', [])
-      excludeAlbum.forEach((item) => list.delete(parseInt(item.trim(), 10)))
+      excludeAlbum.forEach((item) => list.delete(item))
     }
 
     for (const albumId of list) {
@@ -164,10 +166,10 @@ if (!fs.existsSync(path.resolve(__root, '.azusa/'))) {
 
     {
       // Generate for artist top songs(歌手热门)
-      logger.info('Requesting user\'s atrists\' songs')
+      logger.info('Requesting user\'s artists\' songs')
       const list = new Set()
       const nameMap = {}
-      if (config('downloadSubAlbum', false)) {
+      if (config('downloadSubArtist', false)) {
         const artistList = await api.getUserArtist()
         for (const artist of artistList) {
           list.add(artist.id)
@@ -175,10 +177,10 @@ if (!fs.existsSync(path.resolve(__root, '.azusa/'))) {
         }
 
         const extraArtist = config('extraArtist', [])
-        extraArtist.forEach((item) => list.add(parseInt(item.trim(), 10)))
+        extraArtist.forEach((item) => list.add(item))
 
         const excludeArtist = config('excludeArtist', [])
-        excludeArtist.forEach((item) => list.delete(parseInt(item.trim(), 10)))
+        excludeArtist.forEach((item) => list.delete(item))
       }
 
       for (const artistId of list) {
@@ -333,11 +335,19 @@ if (!fs.existsSync(path.resolve(__root, '.azusa/'))) {
         const trackPath = path.resolve(savePath, trackId + '.' + filetype)
         {
           const coverPath = path.resolve(savePath, trackId + '.jpg')
+          logger.debug('Requesting lyric of track', trackInfo.name, trackId)
+          const lyricData = await api.getLyric(trackId)
+          let lyricStr = '';
 
-          metadata.writeMetadata(trackInfo, trackPath, coverPath)
+          if (!lyricData.lrc || !lyricData.lrc.lyric) {
+            logger.debug('No lyric for track', trackInfo.name)
+          } else {
+            lyricStr = lyric.generateLyric(trackId, lyricData)
+          }
+
+          metadata.writeMetadata(trackInfo, trackPath, coverPath, lyricStr)
         }
 
-        // Lyric processing
         await new Promise((resolve) => {
           fs.access(realPath, fs.constants.F_OK | fs.constants.W_OK, (error) => {
             if (error) {
@@ -349,22 +359,6 @@ if (!fs.existsSync(path.resolve(__root, '.azusa/'))) {
             } else resolve()
           })
         }).catch(console.trace)
-        {
-          logger.debug('Requesting lyric of track', trackInfo.name, trackId)
-          const lyricData = await api.getLyric(trackId)
-
-          if (!lyricData.lrc || !lyricData.lrc.lyric) {
-            logger.debug('No lyric for track', trackInfo.name)
-          } else {
-            const lyricStr = lyric.generateLyric(trackId, lyricData)
-            await new Promise((resolve) => {
-              fs.writeFile(path.resolve(realPath, trackId + '.lrc'), lyricStr, (error) => {
-                if (error) throw error
-                resolve()
-              })
-            }).catch(console.trace)
-          }
-        }
         logger.info(`[Track: ${colors.italic(trackInfo.title)}] ${colors.blue('Processed!')}`)
 
         trackCopyQueue.add(async () => {
@@ -418,9 +412,9 @@ if (!fs.existsSync(path.resolve(__root, '.azusa/'))) {
   }
 
   // Process user dir
-  if (config('generatePlaylistFile', true)) {
-    general.genUserPlaylistFile(__root)
-  }
+  // if (config('generatePlaylistFile', true)) {
+  //   general.genUserPlaylistFile(__root)
+  // }
 
   for (const playlistInfo of playlistList) {
     let objHash = null

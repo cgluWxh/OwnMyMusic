@@ -2,14 +2,6 @@ module.exports = {
   // 日志等级
   logLevel: 'info',
 
-  // 是否为 /MUSIC 目录中的文件夹生成播放列表
-  generatePlaylistFile: false,
-
-  // 网易云手机账号
-  phone: 13912345678,
-  // 网易云密码
-  password: '1234567',
-
   // 附加的歌单
   extraPlaylist: [],
   // 排除的歌单

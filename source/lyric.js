@@ -41,7 +41,7 @@ module.exports = {
       } else if (i === (lyricModified.length - 1)) {
         if (lyric.content !== '') lyric.time += 100
       } else {
-        lyric.time = lyricModified[i + 1].time
+        lyric.time = lyricModified[i - 1].time
       }
 
       lyricModified[i] = lyric

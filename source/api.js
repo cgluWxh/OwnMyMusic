@@ -7,7 +7,7 @@ const NeteaseCloudMusicApi = require('NeteaseCloudMusicApi')
 module.exports = {
   _uid: -1,
   _cookie: '',
-  async login (username, password, cachePath) {
+  async login (cachePath) {
     if (cachePath && fs.existsSync(cachePath)) {
       const data = JSON.parse(fs.readFileSync(cachePath).toString())
       this._uid = data.uid
@@ -24,25 +24,36 @@ module.exports = {
       }
     }
 
-    let result = await NeteaseCloudMusicApi.login_cellphone({
-      phone: username,
-      password
-    })
-    result = result.body
-    logger.debug(result)
+    let result = await NeteaseCloudMusicApi.login_qr_key()
+    let key = result.body.data.unikey;
 
-    if (result.code === 200 && result.profile) {
-      logger.info('Login succeed')
-      this._uid = result.profile.userId
-      this._cookie = result.cookie
-      fs.writeFileSync(cachePath, JSON.stringify({
-        uid: this._uid,
-        cookie: this._cookie
-      }))
-    } else {
-      logger.error('Login failed')
-      throw new Error(result.msg)
+    logger.info(`Please scan QR code to login: https://music.163.com/login?codekey=${key}`)
+
+    function asyncSleep(timeMs) {
+      return new Promise((res)=>{
+        setTimeout(()=>res(true), timeMs);
+      })
     }
+
+    while(true) {
+      result = await NeteaseCloudMusicApi.login_qr_check({key})
+      if(result.body.code !== 803) logger.info(result.body.message)
+      else break
+      await asyncSleep(3000)
+    }
+
+    this._cookie = result.body.cookie
+
+    let info = await NeteaseCloudMusicApi.user_account({cookie:this._cookie})
+
+    this._uid = info.body.profile.userId
+
+    logger.info('Login successfully!')
+    fs.writeFileSync(cachePath, JSON.stringify({
+      uid: this._uid,
+      cookie: this._cookie
+    }))
+
   },
 
   async getUserPlaylist () {
@@ -177,12 +188,12 @@ module.exports = {
 
   async getTrackUrl (trackId) {
     let result = await NeteaseCloudMusicApi.song_url({
-      id: trackId,
+      id: trackId.toString(),
       br: config('bitRate', 999000),
       cookie: this._cookie
     })
     logger.debug(result)
-    result = JSON.parse(result.body.toString())
+    result = result.body
 
     const trackUrl = result.data[0]
     if (!trackUrl || !trackUrl.url) {
