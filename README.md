@@ -14,7 +14,7 @@
 
 ### Introduction
 
-这个是用来帮助将你的网易云曲库搬到播放器的小程序，经过多次重构现已进入稳定状态，在 NW-ZX300 上亲测可正常使用
+一个小工具，修改自 [Azusa](https://github.com/KawaiiLab/azusa)，将网易云音乐的数据同步至 [Navidrome](https://github.com/navidrome/navidrome) 等自建音乐服务。
 
 ### Feature
 
@@ -22,25 +22,15 @@
 - 自动填充文件元数据
 - 生成歌词及翻译
 - 多线程下载
-- 为本地文件夹生成播放列表
-- 本地化 NeteaseCloudMusicApi / 无依赖
-- 可同步播放器端对歌单的修改
+- 本地化 NeteaseCloudMusicApi / 打包后无外部依赖
 - 支持日推 / 历史日推下载
 
 ### Usage
 
-#### Pre-build version
-
-1. 前往 [release](https://github.com/kawaiilab/azusa/releases) 下载对应操作系统架构的包
-2. 在播放器 `/MUSIC` 的同级目录创建文件夹 `Azusa` 或在 `/MUSIC` 目录同级目录克隆本项目
-3. 将 `config.example.js` 重命名为 `config.js` 并按照 [Configuration](#Configuration) 小节的指示修改并保存
-4. 打开命令行执行(Unix)或直接双击软件包运行程序
-5. Enjoy~
-
 #### Dev version
 
 1. 直接在播放器 `/MUSIC` 的同级目录克隆本项目，进入后输入 `npm install` 安装依赖
-2. 同上小节 `3.`
+2. 将 `config.example.js` 重命名为 `config.js` 并按照 [Configuration](#Configuration) 小节的指示修改并保存
 3. 输入 `npm start` 运行程序
 4. Enjoy~
 
@@ -50,16 +40,6 @@
 module.exports = {
   // 日志等级
   logLevel: 'info',
-
-  // 是否为 /MUSIC 目录中的文件夹生成播放列表
-  generatePlaylistFile: false,
-
-  // 网易云手机账号
-  phone: 13912345678,
-  // 网易云密码
-  password: '1234567',
-  // 是否保存 Cookie
-  saveCookie: true,
 
   // 附加的歌单
   extraPlaylist: [
@@ -122,27 +102,13 @@ module.exports = {
 
 开启后运行时会在根目录下生成 `account.json` 用于存放账号 Cookie
 
-#### Generate Playlist File
-
-为本地 `/MUSIC` 目录下已有的目录中的文件生成播放列表文件，与文件夹同名
-
-#### Sync Playlist
-
-添加在这个列表中的播放列表会被程序监测并处理变动，用户必须有该播放列表的修改权限
-
-逻辑: 生成播放列表时保存两份(一份 m3u 一份 JSON)，当播放器端进行更改(增加或删除曲目)时会对 m3u 文件进行修改，程序通过比对得到需要更改的项目
-
 #### Merge Translation
 
 据反馈([#1](https://github.com/kawaiilab/azusa/issues/1))某些机器不支持多行同时间歌词，开启次开关后程序会将原文及翻译整合为一行
 
-### SensMe & Music Center for PC Support
-
-本项目可和 Sony 官方的 Music Center for PC 配合使用，后者可为播放器中的音乐补全风格等元信息并可将歌曲加入 Sony 播放器中的 SensMe 频道
-
-打开 Music Center for PC，在 `文件 -> 导入文件夹` 中选择播放器的 `MUSIC/Azusa` 文件夹，全选右键点击 `获取未知元素` 即可开始填充进程
-
 ### Credit
+
+[Original Project](https://github.com/KawaiiLab/azusa)
 
 [Illustration: あずにゃん](https://www.pixiv.net/artworks/80257983)
 
