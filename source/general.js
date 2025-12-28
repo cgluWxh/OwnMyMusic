@@ -26,7 +26,7 @@ module.exports = {
 
   downloadFile (trackInfo, fileURL, savePath) {
     fileURL = fileURL.replace('https', 'http')
-    logger.debug('File URL', fileURL)
+    logger.debug('文件下载地址：', fileURL)
     let isPhoto = false
     let msg = 'Music file'
     if (fileURL.endsWith('640')) {
@@ -46,16 +46,16 @@ module.exports = {
       })
 
       return dl.download().then(() => {
-        logger.debug(`[Track: ${trackInfo.title}][${msg}] Download completed!`)
+        logger.debug(`[歌曲: ${trackInfo.title}][${msg}] 下载完成！`)
       }).catch((error) => {
-        logger.warn(`[Track: ${trackInfo.title}][${msg}]`, error)
+        logger.warn(`[歌曲: ${trackInfo.title}][${msg}]`, error)
         throw error
       })
     }, {
       retries: 3,
       onFailedAttempt: (error) => {
         logger.error(error)
-        logger.warn(`[Track: ${trackInfo.title}][${msg}] ${error.attemptNumber} times failed. ${error.retriesLeft} times left.`)
+        logger.warn(`[歌曲: ${trackInfo.title}][${msg}] 第 ${error.attemptNumber} 次尝试失败，还将重试 ${error.retriesLeft} 次！`)
       }
     })
   },
@@ -66,7 +66,7 @@ module.exports = {
     for (const dirn of dirlist) {
       const userDirname = path.resolve(dirname, dirn)
 
-      if (dirn === 'Azusa') continue
+      if (dirn === 'azusa') continue
       if (!fs.existsSync(userDirname) || !fs.lstatSync(userDirname).isDirectory()) continue
 
       const audioList = []

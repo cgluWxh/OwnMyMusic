@@ -35,6 +35,7 @@ module.exports = {
   },
 
   writeMetadata (trackInfo, trackPath = '', coverPath = '', lyricStr = '') {
+    let written = true;
     if (trackPath.endsWith('mp3')) {
       const tags = {
         title: trackInfo.title,
@@ -48,12 +49,12 @@ module.exports = {
       if (trackInfo.albumImg) tags.APIC = path.resolve(coverPath)
       if (lyricStr) tags.USLT = lyricStr
 
-      logger.debug('MP3 meatadata', tags)
+      logger.debug('MP3 头信息', tags)
       const result = nodeID3.write(tags, trackPath)
       if (result) {
-        logger.debug('Metadata written.')
+        logger.debug('MP3 头信息写入完成！')
       } else {
-        logger.warn('Write metadata failed.')
+        logger.warn('MP3 头信息写入失败！')
       }
     } else {
       try {
@@ -71,12 +72,39 @@ module.exports = {
         if (lyricStr) flac.setTag('LYRICS=' + lyricStr)
 
         flac.save()
-      } catch(e) {
-        logger.warn(`Failed to write metadata for ${trackInfo.title}`)
+      } catch(e) {        
+        // Create metadata text file
+        const txtPath = trackPath.replace(/\.[^/.]+$/, "") + '.txt';
+        const metadataContent = `
+Title: ${trackInfo.title}
+Album: ${trackInfo.album}
+Artist: ${trackInfo.artist}
+Year: ${trackInfo.year}
+Track Number: ${trackInfo.albumNo}
+Disc Number: ${trackInfo.discNo}
+Lyrics: ${lyricStr}
+`;
+        
+        fs.writeFileSync(txtPath, metadataContent.trim());
+        logger.warn(`歌曲 ${trackInfo.title} 格式不支持！元信息已写入 ${txtPath}！`)
+        
+        // Handle cover image if exists
+        if (trackInfo.albumImg) {
+          const coverExt = path.extname(coverPath);
+          const newCoverPath = path.join(path.dirname(trackPath), path.basename(trackPath, path.extname(trackPath)) + coverExt);
+          
+          try {
+            fs.copyFileSync(coverPath, newCoverPath);
+            logger.warn(`歌曲封面已写入 ${newCoverPath}`);
+            written = false;
+          } catch (copyError) {
+            logger.warn(`无法写入封面： ${copyError.message}`);
+          }
+        }
       }
     }
 
-    if (trackInfo.albumImg) {
+    if (trackInfo.albumImg && written) {
       fs.unlink(coverPath, (error) => {
         if (error) throw error
       })
