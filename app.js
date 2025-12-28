@@ -344,7 +344,7 @@ if (!fs.existsSync(path.resolve(__root, 'azusa/'))) {
                         lyricStr = lyric.generateLyric(trackId, lyricData)
                     }
 
-                    metadata.writeMetadata(trackInfo, trackPath, coverPath, lyricStr)
+                    await metadata.writeMetadata(trackInfo, trackPath, coverPath, lyricStr)
                 }
 
                 // Lyric processing

@@ -22,6 +22,7 @@
     "fast-array-diff": "^1.0.0",
     "fs": "0.0.1-security",
     "metaflac-js2": "^1.0.7",
+    "music-metadata": "^7.14.0",
     "NeteaseCloudMusicApi": "^4.8.2",
     "node-id3": "^0.2.2",
     "node-object-hash": "^2.0.0",
