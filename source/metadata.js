@@ -40,22 +40,21 @@ module.exports = {
 
   async writeMetadata (trackInfo, trackPath = '', coverPath = '', lyricStr = '') {
     try {
-      // 检测实际文件格式
-      const metadata = await mm.parseFile(trackPath)
-      const format = metadata.format.container || metadata.format.codec || ''
+      // 通过读取文件头检测实际格式
+      const format = await this._detectFileFormat(trackPath)
       
       logger.debug(`检测到文件格式: ${format}，文件路径: ${trackPath}`)
       
       let written = false
       
       // 根据实际格式写入元数据
-      if (format.toLowerCase().includes('mp3') || format === 'MPEG') {
+      if (format === 'mp3') {
         written = await this._writeMP3Metadata(trackInfo, trackPath, coverPath, lyricStr)
-      } else if (format.toLowerCase().includes('flac') || format === 'FLAC') {
+      } else if (format === 'flac') {
         written = await this._writeFLACMetadata(trackInfo, trackPath, coverPath, lyricStr)
-      } else if (format.toLowerCase().includes('m4a') || format === 'M4A' || format === 'mp4' || format.toLowerCase().includes('aac')) {
+      } else if (format === 'm4a') {
         written = await this._writeM4AMetadata(trackInfo, trackPath, coverPath, lyricStr)
-      } else if (format.toLowerCase().includes('ogg') || format === 'Ogg' || format.toLowerCase().includes('vorbis') || format.toLowerCase().includes('opus')) {
+      } else if (format === 'ogg') {
         written = await this._writeOGGMetadata(trackInfo, trackPath, coverPath, lyricStr)
       } else {
         logger.warn(`不支持的文件格式: ${format}，文件: ${trackPath}`)
@@ -72,6 +71,58 @@ module.exports = {
     }
   },
 
+  async _detectFileFormat (filePath) {
+    // 读取文件头来检测格式
+    const buffer = Buffer.alloc(16)
+    const fd = fs.openSync(filePath, 'r')
+    fs.readSync(fd, buffer, 0, 16, 0)
+    fs.closeSync(fd)
+
+    // 检查魔数 (magic numbers)
+    // MP3: FF FB 或 FF F3 或 FF F2 或 ID3
+    if (buffer[0] === 0xFF && (buffer[1] & 0xE0) === 0xE0) {
+      return 'mp3'
+    }
+    if (buffer[0] === 0x49 && buffer[1] === 0x44 && buffer[2] === 0x33) { // ID3
+      return 'mp3'
+    }
+
+    // FLAC: fLaC (66 4C 61 43)
+    if (buffer[0] === 0x66 && buffer[1] === 0x4C && buffer[2] === 0x61 && buffer[3] === 0x43) {
+      return 'flac'
+    }
+
+    // M4A/MP4: ftyp
+    if (buffer[4] === 0x66 && buffer[5] === 0x74 && buffer[6] === 0x79 && buffer[7] === 0x70) {
+      return 'm4a'
+    }
+
+    // OGG: OggS
+    if (buffer[0] === 0x4F && buffer[1] === 0x67 && buffer[2] === 0x67 && buffer[3] === 0x53) {
+      return 'ogg'
+    }
+
+    // 如果无法通过魔数识别，尝试使用 music-metadata
+    try {
+      const metadata = await mm.parseFile(filePath)
+      const format = metadata.format.container || metadata.format.codec || ''
+      
+      if (format.toLowerCase().includes('mp3') || format === 'MPEG') {
+        return 'mp3'
+      } else if (format.toLowerCase().includes('flac')) {
+        return 'flac'
+      } else if (format.toLowerCase().includes('m4a') || format.toLowerCase().includes('mp4')) {
+        return 'm4a'
+      } else if (format.toLowerCase().includes('ogg') || format.toLowerCase().includes('vorbis') || format.toLowerCase().includes('opus')) {
+        return 'ogg'
+      }
+    } catch (e) {
+      logger.debug(`music-metadata 解析失败: ${e.message}`)
+    }
+
+    return 'unknown'
+  },
+
   _writeMP3Metadata (trackInfo, trackPath, coverPath, lyricStr) {
     try {
       const tags = {
@@ -86,7 +137,12 @@ module.exports = {
       if (trackInfo.albumImg && fs.existsSync(coverPath)) {
         tags.APIC = path.resolve(coverPath)
       }
-      if (lyricStr) tags.USLT = lyricStr
+      if (lyricStr) {
+        tags.USLT = {
+          language: 'chi',
+          text: lyricStr
+        }
+      }
 
       logger.debug('MP3 头信息', tags)
       const result = nodeID3.write(tags, trackPath)
@@ -106,7 +162,6 @@ module.exports = {
   _writeFLACMetadata (trackInfo, trackPath, coverPath, lyricStr) {
     try {
       const flac = new Metaflac(trackPath)
-
       flac.setTag('TITLE=' + trackInfo.title)
       flac.setTag('ALBUM=' + trackInfo.album)
       flac.setTag('ARTIST=' + trackInfo.artist)
@@ -116,10 +171,13 @@ module.exports = {
       flac.setTag('DISCNUMBER=' + trackInfo.discNo)
 
       if (trackInfo.albumImg && fs.existsSync(coverPath)) {
-        flac.importPicture(coverPath)
+        try {
+          flac.importPicture(coverPath)
+        } catch (pictureError) {
+          logger.warn(`FLAC 封面导入失败: ${pictureError.message}`)
+        }
       }
       if (lyricStr) flac.setTag('LYRICS=' + lyricStr)
-
       flac.save()
       logger.debug('FLAC 头信息写入完成！')
       return true
@@ -130,37 +188,31 @@ module.exports = {
   },
 
   async _writeM4AMetadata (trackInfo, trackPath, coverPath, lyricStr) {
-    const metadataFile = trackPath + '.metadata.txt'
     const tmpPath = trackPath + '.tmp.m4a'
     
     try {
-      // 创建 ffmpeg 元数据文件，避免 shell 转义问题
-      let metadataContent = ';FFMETADATA1\n'
-      metadataContent += `title=${this._escapeFFmpegMetadata(trackInfo.title)}\n`
-      metadataContent += `album=${this._escapeFFmpegMetadata(trackInfo.album)}\n`
-      metadataContent += `artist=${this._escapeFFmpegMetadata(trackInfo.artist)}\n`
-      metadataContent += `date=${trackInfo.year}\n`
-      metadataContent += `track=${trackInfo.albumNo}\n`
-      metadataContent += `disc=${trackInfo.discNo}\n`
+      // M4A 使用 ©lyr atom 存储歌词
+      let cmd = `ffmpeg -i "${trackPath}" -y `
+      cmd += `-metadata title="${this._escapeQuotes(trackInfo.title)}" `
+      cmd += `-metadata album="${this._escapeQuotes(trackInfo.album)}" `
+      cmd += `-metadata artist="${this._escapeQuotes(trackInfo.artist)}" `
+      cmd += `-metadata date="${trackInfo.year}" `
+      cmd += `-metadata track="${trackInfo.albumNo}" `
+      cmd += `-metadata disc="${trackInfo.discNo}" `
       
       if (lyricStr) {
-        metadataContent += `lyrics=${this._escapeFFmpegMetadata(lyricStr)}\n`
+        const escapedLyrics = this._escapeQuotes(lyricStr)
+        cmd += `-metadata lyrics="${escapedLyrics}" `
       }
       
-      fs.writeFileSync(metadataFile, metadataContent, 'utf8')
+      cmd += `-codec copy "${tmpPath}"`
       
-      // 使用元数据文件而不是命令行参数
-      const cmd = `ffmpeg -i "${trackPath}" -i "${metadataFile}" -y -map_metadata 1 -codec copy "${tmpPath}"`
-      
-      await execPromise(cmd)
+      await execPromise(cmd, { maxBuffer: 10 * 1024 * 1024 })
       
       // 替换原文件
       fs.renameSync(tmpPath, trackPath)
       
-      // 删除元数据文件
-      fs.unlinkSync(metadataFile)
-      
-      // 处理封面（需要单独处理）
+      // 处理封面
       if (trackInfo.albumImg && fs.existsSync(coverPath)) {
         const tmpCoverPath = trackPath + '.cover.m4a'
         const coverCmd = `ffmpeg -i "${trackPath}" -i "${coverPath}" -y -map 0 -map 1 -c copy -disposition:v:0 attached_pic "${tmpCoverPath}"`
@@ -178,41 +230,34 @@ module.exports = {
       logger.warn(`M4A 元数据写入失败: ${error.message}`)
       // 清理临时文件
       if (fs.existsSync(tmpPath)) fs.unlinkSync(tmpPath)
-      if (fs.existsSync(metadataFile)) fs.unlinkSync(metadataFile)
       return false
     }
   },
 
   async _writeOGGMetadata (trackInfo, trackPath, coverPath, lyricStr) {
-    const metadataFile = trackPath + '.metadata.txt'
     const tmpPath = trackPath + '.tmp.ogg'
     
     try {
-      // 创建 ffmpeg 元数据文件
-      let metadataContent = ';FFMETADATA1\n'
-      metadataContent += `title=${this._escapeFFmpegMetadata(trackInfo.title)}\n`
-      metadataContent += `album=${this._escapeFFmpegMetadata(trackInfo.album)}\n`
-      metadataContent += `artist=${this._escapeFFmpegMetadata(trackInfo.artist)}\n`
-      metadataContent += `date=${trackInfo.year}\n`
-      metadataContent += `tracknumber=${trackInfo.albumNo}\n`
-      metadataContent += `discnumber=${trackInfo.discNo}\n`
+      // OGG 使用 Vorbis Comment 存储元数据
+      let cmd = `ffmpeg -i "${trackPath}" -y `
+      cmd += `-metadata title="${this._escapeQuotes(trackInfo.title)}" `
+      cmd += `-metadata album="${this._escapeQuotes(trackInfo.album)}" `
+      cmd += `-metadata artist="${this._escapeQuotes(trackInfo.artist)}" `
+      cmd += `-metadata date="${trackInfo.year}" `
+      cmd += `-metadata tracknumber="${trackInfo.albumNo}" `
+      cmd += `-metadata discnumber="${trackInfo.discNo}" `
       
       if (lyricStr) {
-        metadataContent += `lyrics=${this._escapeFFmpegMetadata(lyricStr)}\n`
+        const escapedLyrics = this._escapeQuotes(lyricStr)
+        cmd += `-metadata lyrics="${escapedLyrics}" `
       }
       
-      fs.writeFileSync(metadataFile, metadataContent, 'utf8')
+      cmd += `-codec copy "${tmpPath}"`
       
-      // 使用元数据文件
-      const cmd = `ffmpeg -i "${trackPath}" -i "${metadataFile}" -y -map_metadata 1 -codec copy "${tmpPath}"`
-      
-      await execPromise(cmd)
+      await execPromise(cmd, { maxBuffer: 10 * 1024 * 1024 })
       
       // 替换原文件
       fs.renameSync(tmpPath, trackPath)
-      
-      // 删除元数据文件
-      fs.unlinkSync(metadataFile)
       
       logger.debug('OGG 头信息写入完成！')
       return true
@@ -220,7 +265,6 @@ module.exports = {
       logger.warn(`OGG 元数据写入失败: ${error.message}`)
       // 清理临时文件
       if (fs.existsSync(tmpPath)) fs.unlinkSync(tmpPath)
-      if (fs.existsSync(metadataFile)) fs.unlinkSync(metadataFile)
       return false
     }
   },
@@ -235,5 +279,15 @@ module.exports = {
       .replace(/#/g, '\\#')     // 井号
       .replace(/\n/g, '\\n')    // 换行符转义为字面 \n
       .replace(/\r/g, '')       // 删除回车符
+  },
+
+  _escapeQuotes (str) {
+    if (!str) return ''
+    // 转义命令行中的引号和特殊字符
+    return String(str)
+      .replace(/\\/g, '\\\\')  // 反斜杠
+      .replace(/"/g, '\\"')    // 双引号
+      .replace(/\$/g, '\\$')    // 美元符号
+      .replace(/`/g, '\\`')     // 反引号
   }
 }

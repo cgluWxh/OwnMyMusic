@@ -18,9 +18,11 @@
   "license": "MIT",
   "dependencies": {
     "colors": "^1.4.0",
+    "commander": "^9.0.0",
     "dotenv": "^8.2.0",
     "fast-array-diff": "^1.0.0",
     "fs": "0.0.1-security",
+    "lodash": "^4.17.21",
     "metaflac-js2": "^1.0.7",
     "music-metadata": "^7.14.0",
     "NeteaseCloudMusicApi": "^4.8.2",
