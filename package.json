@@ -25,7 +25,7 @@
     "lodash": "^4.17.21",
     "metaflac-js2": "^1.0.7",
     "music-metadata": "^7.14.0",
-    "NeteaseCloudMusicApi": "^4.8.2",
+    "NeteaseCloudMusicApi": "^4.28.0",
     "node-id3": "^0.2.2",
     "node-object-hash": "^2.0.0",
     "nodejs-file-downloader": "^4.4.0",
