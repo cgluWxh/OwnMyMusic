@@ -38,8 +38,6 @@ module.exports = {
 
       if (config('mergeTranslation', false)) {
         lyricModified[i - 1].content += ' - ' + lyric.content
-      } else if (i === (lyricModified.length - 1)) {
-        if (lyric.content !== '') lyric.time += 100
       } else {
         lyric.time = lyricModified[i - 1].time
       }
