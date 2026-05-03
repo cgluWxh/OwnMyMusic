@@ -255,12 +255,10 @@ if (!fs.existsSync(path.resolve(__root, 'azusa/'))) {
         for (const trackId of that.downloaded) {
             if (!trackList[trackId]) {
                 const realPath = path.resolve(__root, sha1(trackId).substr(0, 2))
-                fs.unlink(path.join(realPath, trackId + '.lrc'), () => {
-                    fs.unlink(path.join(realPath, trackId + '.flac'), (error) => {
-                        if (error) {
-                            fs.unlink(path.join(realPath, trackId + '.mp3'), () => { })
-                        }
-                    })
+                fs.unlink(path.join(realPath, trackId + '.flac'), (error) => {
+                    if (error) {
+                        fs.unlink(path.join(realPath, trackId + '.mp3'), () => { })
+                    }
                 })
             }
         }
@@ -447,7 +445,7 @@ if (!fs.existsSync(path.resolve(__root, 'azusa/'))) {
     for (const playlistInfo of playlistList) {
         let objHash = null
         const needSave = playlistInfo.saveForChange
-        playlistWriteList.push(() => {
+        playlistWriteList.push((force = false) => {
             const playlistPath = path.resolve(__root, needSave ? '../..' : '..', general.replaceChar(playlistInfo.name) + (needSave ? '  .m3u' : '.m3u'))
 
             const trackPathList = []
@@ -463,7 +461,7 @@ if (!fs.existsSync(path.resolve(__root, 'azusa/'))) {
             }
 
             if (trackPathList.length === 0) return
-            if (objHash !== (objHash = hasher.hash(trackPathList))) {
+            if (force || objHash !== (objHash = hasher.hash(trackPathList))) {
                 const filecontent = '#EXTM3U\n\n' + trackPathList.join('\n')
                 return new Promise((resolve) => {
                     setTimeout(() => {
@@ -493,7 +491,7 @@ if (!fs.existsSync(path.resolve(__root, 'azusa/'))) {
     await trackCopyQueue.onIdle()
 
     clearInterval(intervalId)
-    await Promise.all(playlistWriteList.map((fn) => fn ? fn() : Promise.resolve())).then(() => {
+    await Promise.all(playlistWriteList.map((fn) => fn ? fn(true) : Promise.resolve())).then(() => {
         setTimeout(() => {
             rimraf(tmpBasePath, () => { })
         }, 1200)
